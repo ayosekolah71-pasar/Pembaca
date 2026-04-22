@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>DocuMind - Pembaca Dokumen & PDF Modern (Pencarian Akurat)</title>
+    <!-- Google Fonts & Ikon Modern -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- PDF.js untuk PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <!-- Mammoth.js untuk DOC/DOCX (modern, akurat mempertahankan teks) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f4f7fc;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            color: #0f172a;
+        }
+
+        /* App Bar Modern dengan Glassmorphism */
+        .app-bar {
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 12px 24px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            z-index: 20;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            background: linear-gradient(145deg, #0f2b3d, #1e4a6e);
+            width: 40px;
+            height: 40px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 12px rgba(0,32,64,0.12);
+        }
+
+        .logo-icon i {
+            font-size: 22px;
+            color: white;
+        }
+
+        .logo-text {
+            font-weight: 800;
+            font-size: 1.35rem;
+            letter-spacing: -0.3px;
+            background: linear-gradient(135deg, #0c4e6e, #0a2a3b);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        .file-zone {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #f1f5f9;
+            padding: 5px 18px 5px 22px;
+            border-radius: 48px;
+            border: 1px solid #e0e7ef;
+        }
+
+        .file-label {
+            background: white;
+            border-radius: 40px;
+            padding: 8px 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #1e4a6e;
+            cursor: pointer;
+            border: 1px solid #cbd5e1;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .file-label:hover {
+            background: #eef2ff;
+            border-color: #2c6e9e;
+            transform: scale(0.97);
+        }
+
+        .file-name {
+            font-size: 0.85rem;
+            color: #1e293b;
+            font-weight: 500;
+            max-width: 240px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Search bar premium */
+        .search-container {
+            flex: 1;
+            min-width: 260px;
+            max-width: 500px;
+            display: flex;
+            align-items: center;
+            background: white;
+            border-radius: 56px;
+            border: 1px solid #e2edf2;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+            transition: all 0.2s;
+        }
+        .search-container:focus-within {
+            border-color: #2c7cb6;
+            box-shadow: 0 0 0 3px rgba(44,124,182,0.2);
+        }
+        .search-icon {
+            padding: 0 14px;
+            color: #5b7c99;
+        }
+        #searchInput {
+            flex: 1;
+            border: none;
+            padding: 12px 0;
+            font-size: 0.9rem;
+            background: transparent;
+            outline: none;
+            font-weight: 500;
+        }
+        .search-controls {
+            display: flex;
+            gap: 6px;
+            padding-right: 10px;
+        }
+        .search-btn {
+            background: transparent;
+            border: none;
+            width: 34px;
+            height: 34px;
+            border-radius: 40px;
+            cursor: pointer;
+            color: #2c5a7a;
+            transition: 0.2s;
+            font-size: 1rem;
+        }
+        .search-btn:hover {
+            background: #e9f0f5;
+            color: #0a2e42;
+        }
+        .match-counter {
+            font-size: 0.75rem;
+            background: #e2edf7;
+            padding: 4px 12px;
+            border-radius: 40px;
+            font-weight: 600;
+            color: #155e8a;
+            margin-left: 8px;
+            white-space: nowrap;
+        }
+        .status-msg {
+            font-size: 0.75rem;
+            color: #2c5a74;
+            background: #eef3fa;
+            padding: 5px 14px;
+            border-radius: 32px;
+            font-weight: 500;
+        }
+
+        /* Konten utama: scroll area */
+        .viewer-wrapper {
+            flex: 1;
+            display: flex;
+            position: relative;
+            overflow: hidden;
+            background: #eef2f6;
+        }
+
+        #documentContainer {
+            flex: 1;
+            overflow-y: auto;
+            padding: 32px 28px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            scroll-behavior: smooth;
+        }
+
+        /* Style untuk konten DOC/HTML (teks kaya) dan juga halaman PDF */
+        .doc-content {
+            max-width: 900px;
+            width: 100%;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 20px 35px -12px rgba(0,0,0,0.1);
+            padding: 48px 56px;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', serif;
+            line-height: 1.6;
+            color: #1e2f3c;
+            transition: all 0.2s;
+        }
+        .doc-content h1, .doc-content h2, .doc-content h3 {
+            margin-top: 1.2em;
+            margin-bottom: 0.5em;
+            font-weight: 600;
+            color: #0c4a6e;
+        }
+        .doc-content p {
+            margin-bottom: 1rem;
+            text-align: justify;
+        }
+        .doc-content mark.highlight {
+            background-color: #ffec9f;
+            border-radius: 6px;
+            padding: 0 2px;
+            color: #1e293b;
+            transition: all 0.1s;
+            box-shadow: 0 0 0 1px #facc1550;
+        }
+        .doc-content mark.highlight.active {
+            background-color: #f97316;
+            color: white;
+            box-shadow: 0 0 0 2px #facc15;
+        }
+
+        /* PDF pages styling */
+        .pdf-page {
+            background: white;
+            box-shadow: 0 12px 24px -12px rgba(0,0,0,0.2);
+            border-radius: 16px;
+            overflow: hidden;
+            position: relative;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        .textLayer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+        }
+        .textLayer span.highlight {
+            background-color: #ffec9f;
+            border-radius: 2px;
+            pointer-events: auto;
+            box-shadow: inset 0 0 0 1px #f59e0b;
+        }
+        .textLayer span.highlight.active {
+            background-color: #f97316;
+            color: #1e1a2f;
+            box-shadow: 0 0 0 2px #ffb347;
+        }
+
+        .loader-overlay {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            padding: 60px;
+            color: #2c5a74;
+        }
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #cfdee9;
+            border-top: 4px solid #1f6e9c;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .error-banner {
+            background: #ffefef;
+            border-left: 5px solid #e53e3e;
+            padding: 14px 22px;
+            border-radius: 20px;
+        }
+        @media (max-width: 680px) {
+            .app-bar { flex-direction: column; align-items: stretch; }
+            .doc-content { padding: 28px 20px; }
+        }
+        button:disabled { opacity: 0.5; cursor: default; }
+    </style>
+</head>
+<body>
+
+<div class="app-bar">
+    <div class="logo-area">
+        <div class="logo-icon"><i class="fas fa-file-alt"></i></div>
+        <div class="logo-text">DocuMind</div>
+    </div>
+    <div class="file-zone">
+        <label class="file-label" for="fileUpload">
+            <i class="fas fa-folder-open"></i> Buka Dokumen
+        </label>
+        <input type="file" id="fileUpload" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="display: none;">
+        <span id="fileNameDisplay" class="file-name">Tidak ada file</span>
+    </div>
+    <div class="search-container">
+        <span class="search-icon"><i class="fas fa-search"></i></span>
+        <input type="text" id="searchInput" placeholder="Cari kata atau frasa... (Enter)" autocomplete="off">
+        <div class="search-controls">
+            <button id="prevMatchBtn" class="search-btn" title="Sebelumnya ↑"><i class="fas fa-chevron-up"></i></button>
+            <button id="nextMatchBtn" class="search-btn" title="Berikutnya ↓"><i class="fas fa-chevron-down"></i></button>
+        </div>
+        <span id="matchCounter" class="match-counter">0/0</span>
+    </div>
+    <div id="statusMsg" class="status-msg"><i class="fas fa-microchip"></i> Siap membaca DOC / PDF</div>
+</div>
+
+<div class="viewer-wrapper">
+    <div id="documentContainer">
+        <div class="loader-overlay" id="initialPlaceholder">
+            <div class="spinner"></div>
+            <div><i class="fas fa-cloud-upload-alt" style="font-size: 2rem;"></i></div>
+            <div>Unggah file <strong>PDF, DOC, atau DOCX</strong><br>Pencarian instan & highlight akurat</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ======================= KONFIGURASI ==========================
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    
+    // STATE Global
+    let currentMode = null;        // 'pdf' or 'doc'
+    let pdfDoc = null;
+    let renderedPagesMap = new Map(); // pageNum -> { textLayerDiv, pageDiv }
+    let allMatches = [];            // untuk PDF dan DOC : { element, isDoc, pageNum?, parentContainer }
+    let currentMatchIndex = -1;
+    let totalMatches = 0;
+    let currentScale = 1.35;
+    let docHtmlRoot = null;         // element .doc-content jika mode DOC
+    
+    // DOM ref
+    const docContainer = document.getElementById('documentContainer');
+    const fileInput = document.getElementById('fileUpload');
+    const fileNameSpan = document.getElementById('fileNameDisplay');
+    const searchInput = document.getElementById('searchInput');
+    const prevBtn = document.getElementById('prevMatchBtn');
+    const nextBtn = document.getElementById('nextMatchBtn');
+    const matchCounterSpan = document.getElementById('matchCounter');
+    const statusDiv = document.getElementById('statusMsg');
+    
+    // Helper status
+    function setStatus(msg, isError = false) {
+        statusDiv.innerHTML = `<i class="fas ${isError ? 'fa-triangle-exclamation' : 'fa-circle-info'}"></i> ${msg}`;
+        statusDiv.style.background = isError ? '#ffe6e6' : '#eef3fa';
+        statusDiv.style.color = isError ? '#b91c1c' : '#1f5e87';
+        if(isError) setTimeout(() => {
+            if(statusDiv.innerHTML.includes(msg)) 
+                statusDiv.style.background = '#eef3fa';
+        }, 2800);
+    }
+    
+    // Bersihkan semua highlight & match list
+    function clearAllHighlights() {
+        if (currentMode === 'doc' && docHtmlRoot) {
+            const marks = docHtmlRoot.querySelectorAll('mark.highlight');
+            marks.forEach(mark => {
+                const parent = mark.parentNode;
+                parent.replaceChild(document.createTextNode(mark.textContent), mark);
+                parent.normalize();
+            });
+        } 
+        else if (currentMode === 'pdf') {
+            for (let [_, data] of renderedPagesMap.entries()) {
+                if (data.textLayerDiv) {
+                    const spans = data.textLayerDiv.querySelectorAll('.highlight');
+                    spans.forEach(span => {
+                        const textParent = span.parentNode;
+                        if (textParent) {
+                            const originalText = document.createTextNode(span.innerText);
+                            textParent.replaceChild(originalText, span);
+                            textParent.normalize();
+                        }
+                    });
+                }
+            }
+        }
+        allMatches = [];
+        totalMatches = 0;
+        currentMatchIndex = -1;
+        matchCounterSpan.innerText = '0/0';
+    }
+    
+    function updateMatchCounterUI() {
+        if (totalMatches === 0) {
+            matchCounterSpan.innerText = '0/0';
+            return;
+        }
+        matchCounterSpan.innerText = `${currentMatchIndex+1}/${totalMatches}`;
+        // Hapus class active dari semua
+        allMatches.forEach(m => {
+            if (m.element) m.element.classList.remove('active');
+        });
+        if (currentMatchIndex >= 0 && allMatches[currentMatchIndex]) {
+            const activeElem = allMatches[currentMatchIndex].element;
+            if (activeElem) {
+                activeElem.classList.add('active');
+                activeElem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // efek kedip
+                activeElem.style.transition = 'background 0.15s';
+                activeElem.style.backgroundColor = '#ffb347';
+                setTimeout(() => { if(activeElem) activeElem.style.backgroundColor = ''; }, 400);
+            }
+        }
+    }
+    
+    function nextMatch() {
+        if (totalMatches === 0) { setStatus("Tidak ada hasil pencarian. Lakukan pencarian dulu.", true); return; }
+        currentMatchIndex = (currentMatchIndex + 1) % totalMatches;
+        updateMatchCounterUI();
+    }
+    function prevMatch() {
+        if (totalMatches === 0) return;
+        currentMatchIndex = (currentMatchIndex - 1 + totalMatches) % totalMatches;
+        updateMatchCounterUI();
+    }
+    
+    // ======================= PROSES PDF ==========================
+    async function renderPdfDocument(arrayBuffer, fileName) {
+        clearAllHighlights();
+        docContainer.innerHTML = '';
+        renderedPagesMap.clear();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        pdfDoc = pdf;
+        currentMode = 'pdf';
+        const numPages = pdf.numPages;
+        for (let i = 1; i <= numPages; i++) {
+            const pageWrapper = document.createElement('div');
+            pageWrapper.className = 'pdf-page';
+            pageWrapper.setAttribute('data-page', i);
+            const canvas = document.createElement('canvas');
+            const textDivLayer = document.createElement('div');
+            textDivLayer.className = 'textLayer';
+            textDivLayer.style.position = 'absolute';
+            textDivLayer.style.top = '0';
+            textDivLayer.style.left = '0';
+            textDivLayer.style.pointerEvents = 'none';
+            pageWrapper.style.position = 'relative';
+            pageWrapper.appendChild(canvas);
+            pageWrapper.appendChild(textDivLayer);
+            docContainer.appendChild(pageWrapper);
+            
+            const page = await pdf.getPage(i);
+            const viewport = page.getViewport({ scale: currentScale });
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            canvas.style.width = `${viewport.width}px`;
+            canvas.style.height = `${viewport.height}px`;
+            await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+            const textContent = await page.getTextContent();
+            await pdfjsLib.renderTextLayer({
+                textContent: textContent,
+                container: textDivLayer,
+                viewport: viewport,
+                textDivs: []
+            }).promise;
+            renderedPagesMap.set(i, { textLayerDiv: textDivLayer, pageDiv: pageWrapper, viewport });
+        }
+        setStatus(`✅ PDF dimuat: ${fileName} (${numPages} halaman). Gunakan pencarian teks.`);
+        fileNameSpan.innerText = fileName.length > 40 ? fileName.slice(0,37)+'...' : fileName;
+    }
+    
+    // ======================= PROSES DOC/DOCX (MAMMOTH) ==========================
+    async function renderDocFile(arrayBuffer, fileName, mimeType) {
+        clearAllHighlights();
+        docContainer.innerHTML = '';
+        currentMode = 'doc';
+        let result;
+        try {
+            if (mimeType === 'application/msword' || fileName.endsWith('.doc')) {
+                result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
+            } else {
+                result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
+            }
+            const htmlContent = result.value;
+            const containerDiv = document.createElement('div');
+            containerDiv.className = 'doc-content';
+            containerDiv.innerHTML = htmlContent;
+            docContainer.appendChild(containerDiv);
+            docHtmlRoot = containerDiv;
+            setStatus(`📄 Dokumen Word dimuat: ${fileName}. Pencarian highlight sempurna.`);
+            fileNameSpan.innerText = fileName.length > 42 ? fileName.slice(0,39)+'...' : fileName;
+            if (result.messages.length > 0) console.warn(result.messages);
+        } catch (err) {
+            console.error(err);
+            setStatus("Gagal parsing DOC/DOCX, pastikan file valid.", true);
+            throw err;
+        }
+    }
+    
+    // ======================= PENCARIAN UNIVERSAL (AKURAT) ==========================
+    function performSearchOnActiveDocument(query) {
+        if (!query || query.trim() === "") {
+            clearAllHighlights();
+            setStatus("Masukkan kata kunci pencarian.");
+            return;
+        }
+        if (currentMode === null) {
+            setStatus("Belum ada dokumen. Unggah PDF atau DOC terlebih dahulu.", true);
+            return;
+        }
+        clearAllHighlights();
+        const lowerQuery = query.toLowerCase().trim();
+        let newMatches = [];
+        
+        if (currentMode === 'doc' && docHtmlRoot) {
+            // Fungsi untuk traverse teks di dalam DOM, mengganti dengan mark highlight tanpa merusak struktur
+            const walker = document.createTreeWalker(
+                docHtmlRoot,
+                NodeFilter.SHOW_TEXT,
+                {
+                    acceptNode: (node) => {
+                        if (node.parentElement && (node.parentElement.tagName === 'MARK' || node.parentElement.classList?.contains('highlight'))) 
+                            return NodeFilter.FILTER_REJECT;
+                        return NodeFilter.FILTER_ACCEPT;
+                    }
+                }
+            );
+            const textNodes = [];
+            while(walker.nextNode()) textNodes.push(walker.currentNode);
+            
+            textNodes.forEach(textNode => {
+                const original = textNode.nodeValue;
+                if (!original) return;
+                const regex = new RegExp(`(${escapeRegex(lowerQuery)})`, 'gi');
+                if (regex.test(original.toLowerCase())) {
+                    const fragment = document.createDocumentFragment();
+                    let lastIndex = 0;
+                    let match;
+                    const lowerOriginal = original.toLowerCase();
+                    regex.lastIndex = 0;
+                    while ((match = regex.exec(lowerOriginal)) !== null) {
+                        const matchStart = match.index;
+                        const matchEnd = matchStart + match[0].length;
+                        if (matchStart > lastIndex) {
+                            fragment.appendChild(document.createTextNode(original.substring(lastIndex, matchStart)));
+                        }
+                        const markSpan = document.createElement('mark');
+                        markSpan.className = 'highlight';
+                        markSpan.textContent = original.substring(matchStart, matchEnd);
+                        fragment.appendChild(markSpan);
+                        newMatches.push({ element: markSpan, isDoc: true });
+                        lastIndex = matchEnd;
+                    }
+                    if (lastIndex < original.length) {
+                        fragment.appendChild(document.createTextNode(original.substring(lastIndex)));
+                    }
+                    textNode.parentNode.replaceChild(fragment, textNode);
+                }
+            });
+        }
+        else if (currentMode === 'pdf' && pdfDoc) {
+            // Pencarian pada textLayer PDF menggunakan teks dari setiap textLayer div
+            for (let [pageNum, data] of renderedPagesMap.entries()) {
+                const textDivs = data.textLayerDiv.querySelectorAll('div');
+                textDivs.forEach(div => {
+                    const originalText = div.innerText;
+                    if (!originalText) return;
+                    const regex = new RegExp(`(${escapeRegex(lowerQuery)})`, 'gi');
+                    if (regex.test(originalText.toLowerCase())) {
+                        let newHtml = originalText.replace(regex, (match) => `<span class="highlight">${match}</span>`);
+                        div.innerHTML = newHtml;
+                        const newSpans = div.querySelectorAll('.highlight');
+                        newSpans.forEach(span => {
+                            newMatches.push({ element: span, isDoc: false, pageNum });
+                        });
+                    }
+                });
+            }
+        }
+        
+        allMatches = newMatches;
+        totalMatches = allMatches.length;
+        if (totalMatches === 0) {
+            matchCounterSpan.innerText = `0/0`;
+            setStatus(`Tidak ditemukan "${query}" dalam dokumen.`);
+            currentMatchIndex = -1;
+            return;
+        }
+        currentMatchIndex = 0;
+        updateMatchCounterUI();
+        setStatus(`✨ Ditemukan ${totalMatches} hasil untuk "${query}"`);
+    }
+    
+    function escapeRegex(str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    
+    // ======================= PROSES UTAMA UPLOAD ==========================
+    async function handleFileUpload(file) {
+        if (!file) return;
+        const fileType = file.type;
+        const fileName = file.name;
+        const ext = fileName.split('.').pop().toLowerCase();
+        
+        if (ext === 'pdf' || fileType === 'application/pdf') {
+            setStatus(`Memuat PDF: ${fileName} ...`);
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    await renderPdfDocument(e.target.result, fileName);
+                } catch (err) {
+                    setStatus("Gagal render PDF: file mungkin korup.", true);
+                    console.error(err);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        } 
+        else if (ext === 'doc' || ext === 'docx' || fileType === 'application/msword' || fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+            setStatus(`Memproses dokumen Word: ${fileName} ...`);
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    await renderDocFile(e.target.result, fileName, fileType);
+                } catch (err) {
+                    setStatus("Gagal membaca DOC/DOCX: format tidak didukung atau rusak.", true);
+                    docContainer.innerHTML = `<div class="error-banner"><i class="fas fa-file-excel"></i> Gagal memproses file Word. Pastikan file .doc/.docx valid.</div>`;
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        } 
+        else {
+            setStatus("Format tidak didukung. Silakan unggah PDF atau DOC/DOCX.", true);
+        }
+    }
+    
+    // Event listeners
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length) handleFileUpload(e.target.files[0]);
+    });
+    
+    // Drag & drop area
+    const viewerArea = document.querySelector('.viewer-wrapper');
+    viewerArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        viewerArea.style.background = "#e6edf4";
+    });
+    viewerArea.addEventListener('dragleave', () => {
+        viewerArea.style.background = "";
+    });
+    viewerArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        viewerArea.style.background = "";
+        const files = e.dataTransfer.files;
+        if (files.length) handleFileUpload(files[0]);
+        else setStatus("Drop file PDF atau Word", true);
+    });
+    
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            performSearchOnActiveDocument(searchInput.value);
+        }
+    });
+    prevBtn.addEventListener('click', prevMatch);
+    nextBtn.addEventListener('click', nextMatch);
+    
+    // initial placeholder info
+    setStatus("Unggah PDF atau DOC/DOCX, pencarian instan di kedua format.");
+    
+    // fit tambahan: jika user klik tombol pencarian ulang
+    window.performSearchWrapper = () => performSearchOnActiveDocument(searchInput.value);
+</script>
+</body>
+</html>
