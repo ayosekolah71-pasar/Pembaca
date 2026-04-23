@@ -1,15 +1,16 @@
 {
-  "name": "DocuVault Mobile",
-  "short_name": "DocuVault",
+  "name": "DocuMind Vault",
+  "short_name": "DocuMind",
   "start_url": "index.html",
   "display": "standalone",
-  "background_color": "#1e4a6e",
+  "background_color": "#eef2f8",
   "theme_color": "#1e4a6e",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/281/281760.png",
+      "src": "109631.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
