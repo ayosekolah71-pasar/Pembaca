@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>DocuVault Mobile</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e4a6e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+
+    <style>
+        :root { --primary: #1e4a6e; --bg: #f1f5f9; }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body { font-family: 'Inter', sans-serif; background: var(--bg); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* Header Responsive */
+        .app-bar {
+            background: white; padding: 10px 15px; display: flex; align-items: center; 
+            gap: 10px; border-bottom: 1px solid #ddd; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        
+        .search-box {
+            flex: 1; display: flex; align-items: center; background: #f0f2f5; 
+            padding: 5px 10px; border-radius: 8px; border: 1px solid #ccc;
+        }
+        .search-box input { 
+            flex: 1; border: none; background: transparent; outline: none; font-size: 14px; width: 50px;
+        }
+
+        /* Layout Utama */
+        .main-container { flex: 1; display: flex; position: relative; overflow: hidden; }
+
+        /* Sidebar (Hidden by default on mobile) */
+        .sidebar {
+            position: absolute; left: -280px; top: 0; bottom: 0; width: 280px; 
+            background: white; z-index: 200; transition: 0.3s; box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+        .sidebar.active { left: 0; }
+
+        /* Viewer - Perbaikan tampilan Mobile */
+        .viewer-area {
+            flex: 1; overflow-y: auto; overflow-x: hidden; padding: 10px;
+            display: flex; flex-direction: column; align-items: center; background: #525659;
+        }
+
+        /* Container PDF agar Full Width di HP */
+        .page-container {
+            position: relative; background: white; margin-bottom: 15px;
+            width: 100% !important; /* Paksa lebar penuh */
+            max-width: 800px; box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        canvas { width: 100% !important; height: auto !important; display: block; }
+
+        /* Text Layer untuk Search */
+        .text-layer {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            overflow: hidden; line-height: 1.0; pointer-events: none; opacity: 0.3;
+        }
+        .text-layer span { color: transparent; position: absolute; white-space: pre; transform-origin: 0% 0%; }
+
+        /* Highlight */
+        mark.search-highlight { background: yellow; color: black; border-radius: 2px; }
+        mark.search-highlight.current { background: orange; font-weight: bold; }
+
+        /* Floating Button Mobile */
+        .fab {
+            position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px;
+            background: var(--primary); color: white; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 150; border: none;
+        }
+
+        #loading {
+            position: fixed; inset: 0; background: rgba(255,255,255,0.8);
+            display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+
+<div id="loading"><i class="fas fa-circle-notch fa-spin fa-2x"></i><p>Memuat Dokumen...</p></div>
+
+<header class="app-bar">
+    <button onclick="toggleSidebar()" class="btn-icon" style="border:none; background:none; font-size: 20px;"><i class="fas fa-bars"></i></button>
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Cari kata...">
+        <span id="matchStatus" style="font-size: 11px; font-weight: bold; margin-right: 5px;">0/0</span>
+    </div>
+    <button onclick="changeMatch(1)" style="border:none; padding:5px;"><i class="fas fa-chevron-down"></i></button>
+</header>
+
+<div class="main-container">
+    <aside class="sidebar" id="sidebar">
+        <div style="padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between;">
+            <strong>Pustaka File</strong>
+            <button onclick="toggleSidebar()" style="border:none; background:none;"><i class="fas fa-times"></i></button>
+        </div>
+        <div id="fileList" style="padding: 10px;"></div>
+    </aside>
+
+    <main class="viewer-area" id="viewer">
+        <div style="color: white; margin-top: 50px; text-align: center;">
+            <i class="fas fa-file-pdf fa-4x" style="opacity: 0.3;"></i>
+            <p style="margin-top: 10px;">Klik tombol + untuk buka file</p>
+        </div>
+    </main>
+</div>
+
+<button class="fab" onclick="document.getElementById('fileInput').click()"><i class="fas fa-plus"></i></button>
+<input type="file" id="fileInput" hidden accept=".pdf,.docx">
+
+<script>
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+    }
+
+    const pdfjs = window['pdfjs-dist/build/pdf'];
+    pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+    let dbFiles = JSON.parse(localStorage.getItem('vault_mobile') || '[]');
+    let matches = [];
+    let currentMatchIdx = -1;
+
+    function toggleSidebar() { document.getElementById('sidebar').classList.toggle('active'); }
+
+    async function loadFile(id) {
+        const file = dbFiles.find(f => f.id === id);
+        if(!file) return;
+        toggleSidebar();
+        
+        const loader = document.getElementById('loading');
+        const viewer = document.getElementById('viewer');
+        loader.style.display = 'flex';
+        viewer.innerHTML = '';
+
+        const bytes = new Uint8Array(atob(file.data).split("").map(c => c.charCodeAt(0)));
+
+        if(file.name.endsWith('.pdf')) {
+            const pdf = await pdfjs.getDocument({data: bytes.buffer}).promise;
+            for(let i=1; i<=pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                
+                // Optimasi Lebar Mobile: Gunakan lebar kontainer sebagai acuan
+                const viewportDefault = page.getViewport({scale: 1.0});
+                const scale = (viewer.clientWidth - 20) / viewportDefault.width;
+                const viewport = page.getViewport({scale: scale || 1.3});
+
+                const container = document.createElement('div');
+                container.className = 'page-container';
+                
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                
+                const textDiv = document.createElement('div');
+                textDiv.className = 'text-layer';
+                
+                container.appendChild(canvas);
+                container.appendChild(textDiv);
+                viewer.appendChild(container);
+
+                await page.render({canvasContext: context, viewport}).promise;
+                const textContent = await page.getTextContent();
+                await pdfjs.renderTextLayer({textContent, container: textDiv, viewport, textDivs: []}).promise;
+            }
+        }
+        loader.style.display = 'none';
+    }
+
+    // Pencarian Mobile
+    document.getElementById('searchInput').oninput = function() {
+        const query = this.value.toLowerCase();
+        document.querySelectorAll('mark.search-highlight').forEach(m => m.replaceWith(m.textContent));
+        matches = [];
+        if(query.length < 2) return;
+
+        const walker = document.createTreeWalker(document.getElementById('viewer'), NodeFilter.SHOW_TEXT);
+        let node;
+        while(node = walker.nextNode()) {
+            if(node.nodeValue.toLowerCase().includes(query)) {
+                const parts = node.nodeValue.split(new RegExp(`(${query})`, 'gi'));
+                const span = document.createElement('span');
+                parts.forEach(p => {
+                    if(p.toLowerCase() === query) {
+                        const m = document.createElement('mark');
+                        m.className = 'search-highlight';
+                        m.textContent = p;
+                        matches.push(m);
+                        span.appendChild(m);
+                    } else span.appendChild(document.createTextNode(p));
+                });
+                node.parentNode.replaceChild(span, node);
+            }
+        }
+        currentMatchIdx = 0;
+        updateMatch();
+    };
+
+    function updateMatch() {
+        document.getElementById('matchStatus').innerText = matches.length > 0 ? `${currentMatchIdx+1}/${matches.length}` : '0/0';
+        matches.forEach((m, i) => m.classList.toggle('current', i === currentMatchIdx));
+        if(matches[currentMatchIdx]) matches[currentMatchIdx].scrollIntoView({behavior:'smooth', block:'center'});
+    }
+
+    function changeMatch(dir) {
+        if(!matches.length) return;
+        currentMatchIdx = (currentMatchIdx + dir + matches.length) % matches.length;
+        updateMatch();
+    }
+
+    document.getElementById('fileInput').onchange = function(e) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = function() {
+            const base64 = btoa(new Uint8Array(this.result).reduce((s, b) => s + String.fromCharCode(b), ''));
+            const id = Date.now().toString();
+            dbFiles.unshift({id, name: file.name, data: base64});
+            localStorage.setItem('vault_mobile', JSON.stringify(dbFiles));
+            renderList();
+            loadFile(id);
+        };
+        reader.readAsArrayBuffer(file);
+    };
+
+    function renderList() {
+        document.getElementById('fileList').innerHTML = dbFiles.map(f => `
+            <div onclick="loadFile('${f.id}')" style="padding:15px; border-bottom:1px solid #eee; font-size:14px; display:flex; justify-content:space-between;">
+                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:80%">${f.name}</span>
+                <i class="fas fa-chevron-right" style="color:#ccc"></i>
+            </div>
+        `).join('');
+    }
+
+    renderList();
+</script>
+</body>
+</html>
