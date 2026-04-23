@@ -2,158 +2,159 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>DocuMind Vault - PDF & DOC Reader</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>DocuMind Vault - HD Reader</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1e4a6e">
-    <link rel="apple-touch-icon" href="icon-512.png">
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 
     <style>
-        /* Menggunakan gaya visual dari index.html yang Anda unggah */
+        :root { --primary: #1e4a6e; --bg: #eef2f8; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: #eef2f8; height: 100vh; display: flex; flex-direction: column; overflow: hidden; color: #0f172a; }
+        
+        body { font-family: 'Inter', sans-serif; background: var(--bg); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
         /* App Bar */
-        .app-bar { background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(0, 0, 0, 0.06); padding: 10px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; z-index: 20; }
-        .logo-area { display: flex; align-items: center; gap: 12px; }
-        .logo-icon { background: linear-gradient(145deg, #0f2b3d, #1e4a6e); width: 40px; height: 40px; border-radius: 14px; display: flex; align-items: center; justify-content: center; }
-        .logo-icon img { width: 28px; height: 28px; border-radius: 4px; } /* Menampilkan ikon yang Anda unggah */
-        .logo-text { font-weight: 800; font-size: 1.35rem; background: linear-gradient(135deg, #0c4e6e, #0a2a3b); background-clip: text; -webkit-background-clip: text; color: transparent; }
-
-        /* Pencarian & Library - Merujuk pada elemen style di index.html */
-        .search-container { flex: 1; min-width: 260px; max-width: 480px; display: flex; align-items: center; background: white; border-radius: 56px; border: 1px solid #e2edf2; }
-        #searchInput { flex: 1; border: none; padding: 11px 0; font-size: 0.9rem; background: transparent; outline: none; }
-        .match-counter { font-size: 0.7rem; background: #e2edf7; padding: 4px 12px; border-radius: 40px; font-weight: 700; margin-right: 10px; }
-
-        .viewer-wrapper { flex: 1; display: flex; overflow: hidden; background: #eef2f6; }
-        #documentContainer { flex: 1; overflow-y: auto; padding: 28px 24px; display: flex; flex-direction: column; align-items: center; gap: 24px; scroll-behavior: smooth; }
-
-        /* Gaya Khusus Konten */
-        .doc-content { max-width: 900px; width: 100%; background: white; border-radius: 28px; padding: 48px 56px; line-height: 1.65; box-shadow: 0 20px 30px -12px rgba(0,0,0,0.1); }
-        .pdf-page { background: white; box-shadow: 0 12px 28px -12px rgba(0,0,0,0.25); border-radius: 18px; overflow: hidden; position: relative; margin-bottom: 28px; width: 100%; display: flex; justify-content: center; }
+        .app-bar {
+            background: white; padding: 10px 20px; display: flex; align-items: center; 
+            justify-content: space-between; gap: 10px; z-index: 100; border-bottom: 1px solid #ddd;
+        }
         
-        mark.highlight { background-color: #ffec9f; border-radius: 4px; }
-        mark.highlight.active { background-color: #f97316; color: white; }
+        .logo-area { display: flex; align-items: center; gap: 10px; }
+        .logo-icon img { width: 32px; height: 32px; border-radius: 8px; }
+        .logo-text { font-weight: 800; font-size: 1.2rem; color: var(--primary); }
 
-        /* Loader & Overlay */
-        .loader-overlay { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 60px; color: #2c5a74; text-align: center; }
-        .spinner { width: 40px; height: 40px; border: 4px solid #cfdee9; border-top: 4px solid #1f6e9c; border-radius: 50%; animation: spin 0.7s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .search-box {
+            flex: 1; max-width: 400px; display: flex; align-items: center; 
+            background: #f0f2f5; padding: 8px 12px; border-radius: 50px; border: 1px solid #ccc;
+        }
+        .search-box input { flex: 1; border: none; background: transparent; outline: none; font-size: 16px; }
+
+        /* Viewer Container */
+        #viewerArea {
+            flex: 1; overflow: auto; padding: 20px; display: flex; 
+            flex-direction: column; align-items: center; background: #525659;
+        }
+
+        .page-container {
+            position: relative; background: white; margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); max-width: 100%;
+        }
+        
+        canvas { display: block; max-width: 100%; height: auto; }
+
+        /* DOCX Content Style */
+        .doc-content {
+            background: white; padding: 40px; max-width: 800px; width: 100%;
+            border-radius: 8px; line-height: 1.6;
+        }
+
+        /* Loading Overlay */
+        #loadingOverlay {
+            position: fixed; inset: 0; background: rgba(255,255,255,0.9);
+            display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000;
+        }
+        .spinner { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Floating Button */
+        .fab {
+            position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px;
+            background: var(--primary); color: white; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 24px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: none; cursor: pointer;
+        }
+
+        mark.highlight { background: yellow; color: black; }
+        mark.highlight.active { background: orange; }
     </style>
 </head>
 <body>
 
-<div class="app-bar">
+<div id="loadingOverlay">
+    <div class="spinner"></div>
+    <p style="margin-top:15px; font-weight:600;">Sedang Menajamkan Dokumen...</p>
+</div>
+
+<header class="app-bar">
     <div class="logo-area">
-        <div class="logo-icon">
-            <img src="109631.png" alt="Logo">
-        </div>
-        <div class="logo-text">DocuMind Vault</div>
+        <div class="logo-icon"><img src="109631.png" alt="Logo"></div>
+        <div class="logo-text">DocuMind</div>
     </div>
-    
-    <div class="search-container">
-        <span style="padding: 0 15px; color: #5b7c99;"><i class="fas fa-search"></i></span>
-        <input type="text" id="searchInput" placeholder="Cari dalam dokumen aktif..." autocomplete="off">
-        <span id="matchCounter" class="match-counter">0/0</span>
-        <div style="display: flex; gap: 5px; padding-right: 10px;">
-            <button id="prevBtn" style="background:none; border:none; cursor:pointer; color:#1e4a6e;"><i class="fas fa-chevron-up"></i></button>
-            <button id="nextBtn" style="background:none; border:none; cursor:pointer; color:#1e4a6e;"><i class="fas fa-chevron-down"></i></button>
-        </div>
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Cari kata...">
+        <span id="matchStatus" style="font-size:12px; margin-left:5px;">0/0</span>
     </div>
+</header>
 
-    <label for="fileUpload" style="background:#1e4a6e; color:white; padding:10px 20px; border-radius:50px; cursor:pointer; font-weight:600; font-size:0.85rem;">
-        <i class="fas fa-plus-circle"></i> Unggah Baru
-    </label>
-    <input type="file" id="fileUpload" accept=".pdf,.doc,.docx" style="display: none;">
-</div>
-
-<div class="viewer-wrapper">
-    <div id="documentContainer">
-        <div class="loader-overlay" id="placeholder">
-            <div class="spinner"></div>
-            <p>Silakan unggah atau pilih file untuk membaca</p>
-        </div>
+<main id="viewerArea">
+    <div style="color:white; text-align:center; margin-top:100px; opacity:0.5;">
+        <i class="fas fa-file-upload fa-4x"></i>
+        <p>Klik tombol + untuk buka file PDF/DOCX</p>
     </div>
-</div>
+</main>
+
+<button class="fab" onclick="document.getElementById('fileInput').click()"><i class="fas fa-plus"></i></button>
+<input type="file" id="fileInput" hidden accept=".pdf,.docx">
 
 <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    const pdfjs = window['pdfjs-dist/build/pdf'];
+    pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-    const container = document.getElementById('documentContainer');
-    const searchInput = document.getElementById('searchInput');
-    const matchCounter = document.getElementById('matchCounter');
-    let matches = [];
-    let currentMatchIndex = -1;
+    const viewer = document.getElementById('viewerArea');
+    const loader = document.getElementById('loadingOverlay');
 
-    // Fungsi Render PDF
-    async function renderPDF(arrayBuffer) {
-        container.innerHTML = '';
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const viewport = page.getViewport({ scale: 1.5 });
+    async function processFile(file) {
+        loader.style.display = 'flex';
+        viewer.innerHTML = '';
+        
+        try {
+            const arrayBuffer = await file.arrayBuffer();
             
-            const pageDiv = document.createElement('div');
-            pageDiv.className = 'pdf-page';
-            
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-            
-            pageDiv.appendChild(canvas);
-            container.appendChild(pageDiv);
-            
-            await page.render({ canvasContext: context, viewport }).promise;
+            if (file.name.toLowerCase().endsWith('.pdf')) {
+                const pdf = await pdfjs.getDocument({data: arrayBuffer}).promise;
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    // Gunakan skala 2.0 untuk HD (Anti-Buram)
+                    const viewport = page.getViewport({scale: 2.0});
+                    
+                    const container = document.createElement('div');
+                    container.className = 'page-container';
+                    
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    
+                    container.appendChild(canvas);
+                    viewer.appendChild(container);
+                    
+                    await page.render({canvasContext: context, viewport}).promise;
+                }
+            } else if (file.name.toLowerCase().endsWith('.docx')) {
+                const result = await mammoth.convertToHtml({arrayBuffer});
+                viewer.innerHTML = `<div class="doc-content">${result.value}</div>`;
+            }
+        } catch (err) {
+            alert("Gagal memuat file: " + err.message);
+        } finally {
+            loader.style.display = 'none';
         }
     }
 
-    // Fungsi Render DOCX
-    async function renderDocx(arrayBuffer) {
-        container.innerHTML = '';
-        const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
-        const docDiv = document.createElement('div');
-        docDiv.className = 'doc-content';
-        docDiv.innerHTML = result.value;
-        container.appendChild(docDiv);
-    }
+    document.getElementById('fileInput').onchange = (e) => {
+        if (e.target.files[0]) processFile(e.target.files[0]);
+    };
 
-    // Handle Upload
-    document.getElementById('fileUpload').addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-            const buffer = event.target.result;
-            if (file.type === "application/pdf") {
-                await renderPDF(buffer);
-            } else {
-                await renderDocx(buffer);
-            }
-        };
-        reader.readAsArrayBuffer(file);
-    });
-
-    // Fitur Pencarian Akurat
-    function performSearch() {
-        const query = searchInput.value.trim().toLowerCase();
-        // Logika highlight dan navigasi sesuai dengan index.html asli Anda
-        // ...
-    }
-
-    // Integrasi Service Worker untuk PWA
+    // Fitur PWA Register
     if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js').catch(err => console.log('SW failed', err));
-        });
+        navigator.serviceWorker.register('sw.js');
     }
 </script>
 </body>
