@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>DocuMind Vault - Reader & Search</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f4f8; height: 100vh; display: flex; flex-direction: column; overflow: hidden; color: #1e293b; }
+
+        /* App Bar */
+        .app-bar {
+            background: white; border-bottom: 1px solid #e2e8f0; padding: 12px 24px;
+            display: flex; align-items: center; justify-content: space-between; gap: 15px; z-index: 50; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .logo-area { display: flex; align-items: center; gap: 10px; min-width: 200px; }
+        .logo-icon { background: #1e4a6e; width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; }
+        .logo-text { font-weight: 800; font-size: 1.2rem; color: #0f172a; }
+
+        .search-section { flex: 1; max-width: 600px; display: flex; align-items: center; gap: 8px; background: #f8fafc; padding: 6px 12px; border-radius: 12px; border: 1px solid #cbd5e1; }
+        .search-section input { flex: 1; border: none; background: transparent; outline: none; font-size: 0.9rem; padding: 4px; }
+        .search-controls { display: flex; align-items: center; gap: 4px; border-left: 1px solid #cbd5e1; padding-left: 8px; }
+        .btn-icon { background: none; border: none; padding: 6px; cursor: pointer; color: #64748b; border-radius: 6px; }
+        .btn-icon:hover { background: #e2e8f0; color: #1e4a6e; }
+        .match-badge { font-size: 0.75rem; font-weight: 700; color: #1e4a6e; padding: 2px 8px; background: #dbeafe; border-radius: 20px; min-width: 45px; text-align: center; }
+
+        /* Layout */
+        .main-content { flex: 1; display: flex; overflow: hidden; }
+        
+        /* Sidebar */
+        .sidebar { width: 280px; background: white; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 16px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
+        .sidebar-header h3 { font-size: 0.9rem; font-weight: 700; }
+        .btn-upload { background: #1e4a6e; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-size: 0.8rem; cursor: pointer; font-weight: 600; }
+        .file-list { flex: 1; overflow-y: auto; padding: 12px; }
+        .file-item { 
+            padding: 12px; border-radius: 10px; margin-bottom: 8px; cursor: pointer; border: 1px solid transparent; 
+            display: flex; align-items: center; justify-content: space-between; transition: 0.2s;
+        }
+        .file-item:hover { background: #f8fafc; border-color: #e2e8f0; }
+        .file-item.active { background: #eff6ff; border-color: #bfdbfe; }
+        .file-info-text { overflow: hidden; }
+        .file-name { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        .file-date { font-size: 0.7rem; color: #94a3b8; }
+        .btn-delete { color: #cbd5e1; border: none; background: none; cursor: pointer; padding: 4px; }
+        .btn-delete:hover { color: #ef4444; }
+
+        /* Viewer */
+        .viewer-container { flex: 1; overflow-y: auto; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; gap: 30px; position: relative; }
+        
+        /* Render Styles */
+        .pdf-page-canvas { background: white; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); border-radius: 4px; position: relative; }
+        .text-layer { position: absolute; left: 0; top: 0; right: 0; bottom: 0; overflow: hidden; opacity: 0.2; line-height: 1; pointer-events: none; }
+        .text-layer span { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
+        
+        /* Highlight Utility */
+        mark.search-highlight { background-color: #fde047; color: #000; border-radius: 2px; box-shadow: 0 0 0 1px #eab308; }
+        mark.search-highlight.current { background-color: #f97316; color: white; box-shadow: 0 0 8px rgba(249,115,22,0.5); }
+
+        /* Docx Content */
+        .docx-wrapper { background: white; padding: 60px; max-width: 850px; width: 100%; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); border-radius: 8px; line-height: 1.6; }
+
+        .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #94a3b8; gap: 10px; }
+        
+        #loadingOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); display: none; align-items: center; justify-content: center; z-index: 100; font-weight: 600; }
+    </style>
+</head>
+<body>
+
+<div id="loadingOverlay">Memproses Dokumen...</div>
+
+<header class="app-bar">
+    <div class="logo-area">
+        <div class="logo-icon"><i class="fas fa-file-invoice"></i></div>
+        <div class="logo-text">DocuMind Vault</div>
+    </div>
+
+    <div class="search-section">
+        <i class="fas fa-search" style="color: #94a3b8;"></i>
+        <input type="text" id="searchInput" placeholder="Cari kata kunci...">
+        <div class="search-controls">
+            <span class="match-badge" id="matchStatus">0/0</span>
+            <button class="btn-icon" id="prevBtn"><i class="fas fa-chevron-up"></i></button>
+            <button class="btn-icon" id="nextBtn"><i class="fas fa-chevron-down"></i></button>
+        </div>
+    </div>
+
+    <div style="min-width: 200px; text-align: right;">
+        <input type="file" id="fileInput" hidden accept=".pdf,.docx">
+        <button class="btn-upload" onclick="document.getElementById('fileInput').click()">
+            <i class="fas fa-plus"></i> Unggah Baru
+        </button>
+    </div>
+</header>
+
+<main class="main-content">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h3>Pustaka</h3>
+            <button class="btn-delete" id="clearAll" title="Hapus Semua"><i class="fas fa-trash-alt"></i></button>
+        </div>
+        <div class="file-list" id="fileList"></div>
+    </aside>
+
+    <section class="viewer-container" id="viewer">
+        <div class="empty-state">
+            <i class="fas fa-file-import fa-3x"></i>
+            <p>Pilih atau unggah dokumen untuk memulai</p>
+        </div>
+    </section>
+</main>
+
+<script>
+    const pdfjs = window['pdfjs-dist/build/pdf'];
+    pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+    let files = JSON.parse(localStorage.getItem('vault_docs') || '[]');
+    let currentDoc = null;
+    let matches = [];
+    let currentMatchIdx = -1;
+
+    // --- Core Functions ---
+
+    function saveToLocal() {
+        localStorage.setItem('vault_docs', JSON.stringify(files));
+        renderFileList();
+    }
+
+    function renderFileList() {
+        const container = document.getElementById('fileList');
+        container.innerHTML = files.length ? '' : '<p style="text-align:center;font-size:0.8rem;color:#94a3b8;margin-top:20px;">Belum ada file</p>';
+        
+        files.forEach((file, index) => {
+            const div = document.createElement('div');
+            div.className = `file-item ${currentDoc?.id === file.id ? 'active' : ''}`;
+            div.onclick = () => loadFile(file.id);
+            div.innerHTML = `
+                <div class="file-info-text">
+                    <span class="file-name">${file.name}</span>
+                    <span class="file-date">${file.date}</span>
+                </div>
+                <button class="btn-delete" onclick="event.stopPropagation(); deleteFile(${index})"><i class="fas fa-times"></i></button>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    async function handleUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        document.getElementById('loadingOverlay').style.display = 'flex';
+        const reader = new FileReader();
+        reader.onload = async (res) => {
+            const base64 = res.target.result.split(',')[1];
+            const newFile = {
+                id: Date.now().toString(),
+                name: file.name,
+                type: file.name.endsWith('.pdf') ? 'pdf' : 'docx',
+                data: base64,
+                date: new Date().toLocaleDateString('id-ID')
+            };
+            files.unshift(newFile);
+            saveToLocal();
+            await loadFile(newFile.id);
+            document.getElementById('loadingOverlay').style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function loadFile(id) {
+        const file = files.find(f => f.id === id);
+        if (!file) return;
+        currentDoc = file;
+        renderFileList();
+        
+        const viewer = document.getElementById('viewer');
+        viewer.innerHTML = '';
+        resetSearch();
+
+        const binary = atob(file.data);
+        const array = new Uint8Array(binary.length);
+        for(let i=0; i<binary.length; i++) array[i] = binary.charCodeAt(i);
+
+        if (file.type === 'pdf') {
+            await renderPDF(array.buffer);
+        } else {
+            await renderDocx(array.buffer);
+        }
+    }
+
+    async function renderPDF(buffer) {
+        const viewer = document.getElementById('viewer');
+        const pdf = await pdfjs.getDocument({data: buffer}).promise;
+        
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const scale = 1.5;
+            const viewport = page.getViewport({scale});
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'pdf-page-canvas';
+            wrapper.style.width = viewport.width + 'px';
+            wrapper.style.height = viewport.height + 'px';
+
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            wrapper.appendChild(canvas);
+
+            const textLayerDiv = document.createElement('div');
+            textLayerDiv.className = 'text-layer';
+            wrapper.appendChild(textLayerDiv);
+
+            viewer.appendChild(wrapper);
+
+            const context = canvas.getContext('2d');
+            await page.render({canvasContext: context, viewport}).promise;
+
+            const textContent = await page.getTextContent();
+            await pdfjs.renderTextLayer({
+                textContent: textContent,
+                container: textLayerDiv,
+                viewport: viewport,
+                textDivs: []
+            }).promise;
+        }
+    }
+
+    async function renderDocx(buffer) {
+        const viewer = document.getElementById('viewer');
+        const result = await mammoth.convertToHtml({arrayBuffer: buffer});
+        const wrapper = document.createElement('div');
+        wrapper.className = 'docx-wrapper';
+        wrapper.innerHTML = result.value;
+        viewer.appendChild(wrapper);
+    }
+
+    function deleteFile(index) {
+        if (confirm('Hapus file ini?')) {
+            files.splice(index, 1);
+            saveToLocal();
+            if (files.length === 0) location.reload();
+        }
+    }
+
+    // --- Search Logic ---
+
+    function resetSearch() {
+        matches = [];
+        currentMatchIdx = -1;
+        updateSearchUI();
+        
+        // Bersihkan highlight lama
+        const viewer = document.getElementById('viewer');
+        const markers = viewer.querySelectorAll('mark.search-highlight');
+        markers.forEach(m => {
+            const parent = m.parentNode;
+            parent.replaceChild(document.createTextNode(m.textContent), m);
+            parent.normalize();
+        });
+    }
+
+    function performSearch() {
+        const term = document.getElementById('searchInput').value.trim();
+        resetSearch();
+        if (term.length < 2) return;
+
+        const viewer = document.getElementById('viewer');
+        const walker = document.createTreeWalker(viewer, NodeFilter.SHOW_TEXT, null, false);
+        let node;
+        const textNodes = [];
+
+        while (node = walker.nextNode()) {
+            if (node.parentElement.closest('.text-layer') || node.parentElement.closest('.docx-wrapper')) {
+                textNodes.push(node);
+            }
+        }
+
+        const regex = new RegExp(`(${term})`, 'gi');
+
+        textNodes.forEach(node => {
+            const matchesInNode = node.nodeValue.match(regex);
+            if (matchesInNode) {
+                const parent = node.parentNode;
+                const frag = document.createDocumentFragment();
+                let lastIdx = 0;
+                
+                node.nodeValue.replace(regex, (match, p1, offset) => {
+                    frag.appendChild(document.createTextNode(node.nodeValue.substring(lastIdx, offset)));
+                    const mNode = document.createElement('mark');
+                    mNode.className = 'search-highlight';
+                    mNode.textContent = match;
+                    frag.appendChild(mNode);
+                    matches.push(mNode);
+                    lastIdx = offset + match.length;
+                });
+
+                frag.appendChild(document.createTextNode(node.nodeValue.substring(lastIdx)));
+                parent.replaceChild(frag, node);
+            }
+        });
+
+        if (matches.length > 0) {
+            currentMatchIdx = 0;
+            jumpToMatch();
+        }
+        updateSearchUI();
+    }
+
+    function jumpToMatch() {
+        matches.forEach(m => m.classList.remove('current'));
+        if (matches[currentMatchIdx]) {
+            const active = matches[currentMatchIdx];
+            active.classList.add('current');
+            active.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        updateSearchUI();
+    }
+
+    function updateSearchUI() {
+        document.getElementById('matchStatus').innerText = 
+            matches.length > 0 ? `${currentMatchIdx + 1}/${matches.length}` : '0/0';
+    }
+
+    // --- Events ---
+
+    document.getElementById('fileInput').onchange = handleUpload;
+    document.getElementById('searchInput').oninput = performSearch;
+    document.getElementById('nextBtn').onclick = () => {
+        if (matches.length > 0) {
+            currentMatchIdx = (currentMatchIdx + 1) % matches.length;
+            jumpToMatch();
+        }
+    };
+    document.getElementById('prevBtn').onclick = () => {
+        if (matches.length > 0) {
+            currentMatchIdx = (currentMatchIdx - 1 + matches.length) % matches.length;
+            jumpToMatch();
+        }
+    };
+    document.getElementById('clearAll').onclick = () => {
+        if (confirm('Kosongkan semua pustaka?')) {
+            files = [];
+            saveToLocal();
+            location.reload();
+        }
+    };
+
+    // Init
+    renderFileList();
+</script>
+</body>
+</html>
