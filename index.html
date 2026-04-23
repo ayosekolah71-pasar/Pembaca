@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>DocuMind Vault - PDF/DOC Reader dengan Pustaka & Pencarian</title>
+    <!-- Google Fonts & Font Awesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- PDF.js & Mammoth -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #eef2f8;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            color: #0f172a;
+        }
+
+        /* App Bar */
+        .app-bar {
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            padding: 10px 24px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            z-index: 20;
+        }
+
+        .logo-area { display: flex; align-items: center; gap: 12px; }
+        .logo-icon {
+            background: linear-gradient(145deg, #0f2b3d, #1e4a6e);
+            width: 40px; height: 40px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .logo-icon i { font-size: 22px; color: white; }
+        .logo-text { font-weight: 800; font-size: 1.35rem; background: linear-gradient(135deg, #0c4e6e, #0a2a3b); background-clip: text; -webkit-background-clip: text; color: transparent; }
+
+        .file-zone { display: flex; align-items: center; gap: 12px; background: #f1f5f9; padding: 4px 16px 4px 20px; border-radius: 60px; border: 1px solid #e0e7ef; }
+        .file-label {
+            background: white; border-radius: 40px; padding: 7px 20px; font-weight: 600; font-size: 0.8rem;
+            color: #1e4a6e; cursor: pointer; border: 1px solid #cbd5e1; transition: 0.2s; display: flex; align-items: center; gap: 8px;
+        }
+        .file-label:hover { background: #eef2ff; transform: scale(0.97); }
+
+        /* Search Bar */
+        .search-container {
+            flex: 1; min-width: 260px; max-width: 480px;
+            display: flex; align-items: center; background: white; border-radius: 56px;
+            border: 1px solid #e2edf2; transition: all 0.2s;
+        }
+        .search-container:focus-within { border-color: #2c7cb6; box-shadow: 0 0 0 3px rgba(44,124,182,0.2); }
+        .search-icon { padding: 0 14px; color: #5b7c99; }
+        #searchInput { flex: 1; border: none; padding: 11px 0; font-size: 0.9rem; background: transparent; outline: none; font-weight: 500; }
+        .search-controls { display: flex; gap: 6px; padding-right: 10px; }
+        .search-btn { background: transparent; border: none; width: 34px; height: 34px; border-radius: 40px; cursor: pointer; color: #2c5a7a; transition: 0.2s; }
+        .search-btn:hover { background: #e9f0f5; }
+        .match-counter { font-size: 0.7rem; background: #e2edf7; padding: 4px 12px; border-radius: 40px; font-weight: 700; margin-left: 8px; }
+        .status-msg { font-size: 0.72rem; background: #eef3fa; padding: 5px 16px; border-radius: 32px; font-weight: 500; }
+
+        /* Library Panel */
+        .library-panel {
+            background: #f8fafd;
+            border-right: 1px solid #e2e8f0;
+            width: 280px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 5;
+        }
+        .library-header {
+            padding: 18px 16px 12px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: #1e4a6e;
+            border-bottom: 1px solid #e2edf2;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .clear-all-btn {
+            background: none;
+            border: none;
+            color: #e53e3e;
+            font-size: 0.7rem;
+            cursor: pointer;
+            padding: 4px 10px;
+            border-radius: 30px;
+            background: #fff0f0;
+        }
+        .file-list {
+            flex: 1;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .file-card {
+            background: white;
+            border-radius: 18px;
+            padding: 12px 14px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+            border: 1px solid #e9edf2;
+            cursor: pointer;
+            transition: 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .file-card:hover { background: #f1f9ff; border-color: #bdd4e7; transform: translateY(-1px); }
+        .file-card.active { background: #e6f0fa; border-left: 4px solid #1f6e9c; }
+        .file-info { display: flex; flex-direction: column; gap: 5px; overflow: hidden; flex: 1; }
+        .file-name-lib { font-weight: 600; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .file-meta { font-size: 0.65rem; color: #5c7c8e; display: flex; gap: 10px; }
+        .delete-file {
+            background: transparent;
+            border: none;
+            color: #a0bbd0;
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 6px;
+            border-radius: 30px;
+        }
+        .delete-file:hover { color: #e53e3e; background: #fff0f0; }
+
+        .viewer-wrapper { flex: 1; display: flex; overflow: hidden; background: #eef2f6; }
+        #documentContainer {
+            flex: 1; overflow-y: auto; padding: 28px 24px;
+            display: flex; flex-direction: column; align-items: center; gap: 24px;
+            scroll-behavior: smooth;
+        }
+
+        /* DOC content */
+        .doc-content {
+            max-width: 900px; width: 100%; background: white; border-radius: 28px;
+            padding: 48px 56px; line-height: 1.65; color: #1e2f3c;
+            box-shadow: 0 20px 30px -12px rgba(0,0,0,0.1);
+        }
+        .doc-content mark.highlight {
+            background-color: #ffec9f; border-radius: 6px; padding: 0 3px;
+            box-shadow: 0 0 0 1px #facc1550;
+        }
+        .doc-content mark.highlight.active { background-color: #f97316; color: white; box-shadow: 0 0 0 2px #ffb347; }
+
+        /* PDF pages */
+        .pdf-page {
+            background: white;
+            box-shadow: 0 12px 28px -12px rgba(0,0,0,0.25);
+            border-radius: 18px;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 20px;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        .textLayer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+        }
+        .textLayer span.highlight {
+            background-color: #ffec9f;
+            border-radius: 3px;
+            pointer-events: auto;
+            box-shadow: inset 0 0 0 1px #f59e0b;
+        }
+        .textLayer span.highlight.active {
+            background-color: #f97316;
+            color: #1e1a2f;
+            box-shadow: 0 0 0 2px #ffb347;
+        }
+
+        .loader-overlay {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            padding: 60px;
+            color: #2c5a74;
+            text-align: center;
+        }
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #cfdee9;
+            border-top: 4px solid #1f6e9c;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (max-width: 780px) { .library-panel { width: 240px; } .doc-content { padding: 28px 24px; } }
+        
+        .error-banner {
+            background: #fee2e2;
+            border-left: 4px solid #dc2626;
+            padding: 20px;
+            border-radius: 16px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-bar">
+    <div class="logo-area">
+        <div class="logo-icon"><i class="fas fa-database"></i></div>
+        <div class="logo-text">DocuMind Vault</div>
+    </div>
+    <div class="file-zone">
+        <label class="file-label" for="fileUpload"><i class="fas fa-plus-circle"></i> Unggah Baru</label>
+        <input type="file" id="fileUpload" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="display: none;">
+        <span id="fileNameDisplay" class="file-name" style="font-size:0.75rem;">Tidak ada file aktif</span>
+    </div>
+    <div class="search-container">
+        <span class="search-icon"><i class="fas fa-search"></i></span>
+        <input type="text" id="searchInput" placeholder="Cari dalam dokumen aktif... (Enter)" autocomplete="off">
+        <div class="search-controls">
+            <button id="prevMatchBtn" class="search-btn" title="Sebelumnya"><i class="fas fa-chevron-up"></i></button>
+            <button id="nextMatchBtn" class="search-btn" title="Berikutnya"><i class="fas fa-chevron-down"></i></button>
+        </div>
+        <span id="matchCounter" class="match-counter">0/0</span>
+    </div>
+    <div id="statusMsg" class="status-msg"><i class="fas fa-check-circle"></i> Siap | Pustaka lokal</div>
+</div>
+
+<div class="viewer-wrapper">
+    <!-- Panel Library -->
+    <div class="library-panel">
+        <div class="library-header">
+            <span><i class="fas fa-folder-open"></i> Pustaka Saya</span>
+            <button id="clearAllFilesBtn" class="clear-all-btn" title="Hapus semua file"><i class="fas fa-trash-alt"></i> Hapus Semua</button>
+        </div>
+        <div id="fileListContainer" class="file-list">
+            <div style="text-align: center; color: #8ba0b0; padding: 24px; font-size:0.8rem;">Belum ada file.<br>Unggah PDF/DOC</div>
+        </div>
+    </div>
+
+    <div id="documentContainer">
+        <div class="loader-overlay" id="initialPlaceholder">
+            <div class="spinner"></div>
+            <div><i class="fas fa-cloud-upload-alt" style="font-size: 2rem;"></i></div>
+            <div><strong>Klik Unggah Baru</strong> atau drag & drop file<br>PDF, DOC, DOCX akan tersimpan di pustaka</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ======================= KONFIGURASI ==========================
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    
+    // STORAGE: menggunakan localStorage
+    let storedFiles = []; // [{ id, name, type, dataBase64, addedAt }]
+    let currentFileId = null;
+    
+    // State untuk viewer
+    let currentMode = null;          // 'pdf' or 'doc'
+    let pdfDoc = null;
+    let renderedPagesMap = new Map(); // pageNum -> { textLayerDiv, pageDiv }
+    let allMatches = [];
+    let currentMatchIndex = -1;
+    let totalMatches = 0;
+    let docHtmlRoot = null;
+    let currentScale = 1.4;
+    
+    // DOM elements
+    const docContainer = document.getElementById('documentContainer');
+    const fileInput = document.getElementById('fileUpload');
+    const fileNameSpan = document.getElementById('fileNameDisplay');
+    const searchInput = document.getElementById('searchInput');
+    const prevBtn = document.getElementById('prevMatchBtn');
+    const nextBtn = document.getElementById('nextMatchBtn');
+    const matchCounterSpan = document.getElementById('matchCounter');
+    const statusDiv = document.getElementById('statusMsg');
+    const fileListContainer = document.getElementById('fileListContainer');
+    const clearAllBtn = document.getElementById('clearAllFilesBtn');
+    
+    function setStatus(msg, isError = false, duration = 3000) {
+        statusDiv.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-triangle' : 'fa-circle-info'}"></i> ${msg}`;
+        statusDiv.style.background = isError ? '#ffe6e6' : '#eef3fa';
+        statusDiv.style.color = isError ? '#b91c1c' : '#1f5e87';
+        if (!isError && duration) setTimeout(() => {
+            if (statusDiv.innerHTML.includes(msg)) statusDiv.style.background = '#eef3fa';
+        }, duration);
+    }
+    
+    // Simpan ke localStorage
+    function saveLibraryToLocal() {
+        localStorage.setItem('documind_vault_files', JSON.stringify(storedFiles));
+        renderFileList();
+    }
+    
+    // Muat library
+    function loadLibraryFromLocal() {
+        const raw = localStorage.getItem('documind_vault_files');
+        if (raw) {
+            try {
+                storedFiles = JSON.parse(raw);
+                if (!Array.isArray(storedFiles)) storedFiles = [];
+            } catch(e) { storedFiles = []; }
+        } else { storedFiles = []; }
+        renderFileList();
+        if (storedFiles.length > 0 && !currentFileId) {
+            loadFileById(storedFiles[0].id);
+        } else if (storedFiles.length === 0) {
+            resetViewerToEmpty();
+        }
+    }
+    
+    function renderFileList() {
+        if (!fileListContainer) return;
+        if (storedFiles.length === 0) {
+            fileListContainer.innerHTML = '<div style="text-align: center; color: #8ba0b0; padding: 24px; font-size:0.8rem;">Belum ada file.<br>Unggah PDF/DOC</div>';
+            return;
+        }
+        fileListContainer.innerHTML = '';
+        storedFiles.forEach(file => {
+            const card = document.createElement('div');
+            card.className = `file-card ${currentFileId === file.id ? 'active' : ''}`;
+            card.innerHTML = `
+                <div class="file-info">
+                    <div class="file-name-lib"><i class="fas ${file.type === 'pdf' ? 'fa-file-pdf' : 'fa-file-word'}"></i> ${escapeHtml(file.name)}</div>
+                    <div class="file-meta">${file.type.toUpperCase()} • ${formatDate(file.addedAt)}</div>
+                </div>
+                <button class="delete-file" data-id="${file.id}" title="Hapus"><i class="fas fa-trash-can"></i></button>
+            `;
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('.delete-file')) return;
+                loadFileById(file.id);
+            });
+            const delBtn = card.querySelector('.delete-file');
+            delBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteFileById(file.id);
+            });
+            fileListContainer.appendChild(card);
+        });
+    }
+    
+    function escapeHtml(str) { return str.replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+    function formatDate(timestamp) { return new Date(timestamp).toLocaleDateString('id-ID'); }
+    
+    function deleteFileById(id) {
+        const idx = storedFiles.findIndex(f => f.id === id);
+        if (idx !== -1) {
+            storedFiles.splice(idx, 1);
+            saveLibraryToLocal();
+            if (currentFileId === id) {
+                if (storedFiles.length > 0) loadFileById(storedFiles[0].id);
+                else resetViewerToEmpty();
+            }
+            setStatus(`File dihapus dari pustaka.`);
+        }
+    }
+    
+    clearAllBtn.addEventListener('click', () => {
+        if (storedFiles.length === 0) return;
+        if (confirm("Hapus SEMUA file tersimpan? Tindakan permanen.")) {
+            storedFiles = [];
+            saveLibraryToLocal();
+            resetViewerToEmpty();
+            setStatus("Semua file telah dihapus dari pustaka.");
+        }
+    });
+    
+    function resetViewerToEmpty() {
+        currentFileId = null;
+        currentMode = null;
+        pdfDoc = null;
+        docHtmlRoot = null;
+        renderedPagesMap.clear();
+        clearAllHighlights();
+        docContainer.innerHTML = `<div class="loader-overlay">
+            <div class="spinner"></div>
+            <div><i class="fas fa-folder-open" style="font-size: 2rem;"></i></div>
+            <div>Pilih file dari pustaka atau unggah dokumen baru</div>
+        </div>`;
+        fileNameSpan.innerText = "Tidak ada file aktif";
+        renderFileList();
+    }
+    
+    function clearAllHighlights() {
+        if (currentMode === 'doc' && docHtmlRoot) {
+            const marks = docHtmlRoot.querySelectorAll('mark.highlight');
+            marks.forEach(mark => {
+                const parent = mark.parentNode;
+                parent.replaceChild(document.createTextNode(mark.textContent), mark);
+                parent.normalize();
+            });
+        } else if (currentMode === 'pdf') {
+            for (let [_, data] of renderedPagesMap.entries()) {
+                if (data.textLayerDiv) {
+                    const spans = data.textLayerDiv.querySelectorAll('.highlight');
+                    spans.forEach(span => {
+                        const parent = span.parentNode;
+                        if (parent) {
+                            const original = document.createTextNode(span.innerText);
+                            parent.replaceChild(original, span);
+                            parent.normalize();
+                        }
+                    });
+                }
+            }
+        }
+        allMatches = [];
+        totalMatches = 0;
+        currentMatchIndex = -1;
+        matchCounterSpan.innerText = '0/0';
+    }
+    
+    function updateMatchUI() {
+        if (totalMatches === 0) { matchCounterSpan.innerText = '0/0'; return; }
+        matchCounterSpan.innerText = `${currentMatchIndex+1}/${totalMatches}`;
+        allMatches.forEach(m => { if (m.element) m.element.classList.remove('active'); });
+        if (currentMatchIndex >= 0 && allMatches[currentMatchIndex]) {
+            const active = allMatches[currentMatchIndex].element;
+            if (active) {
+                active.classList.add('active');
+                active.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                active.style.transition = 'background 0.15s';
+                active.style.backgroundColor = '#ffb347';
+                setTimeout(() => { if(active) active.style.backgroundColor = ''; }, 400);
+            }
+        }
+    }
+    
+    function nextMatch() { if (totalMatches === 0) { setStatus("Tidak ada hasil pencarian", true, 1500); return; } currentMatchIndex = (currentMatchIndex + 1) % totalMatches; updateMatchUI(); }
+    function prevMatch() { if (totalMatches === 0) return; currentMatchIndex = (currentMatchIndex - 1 + totalMatches) % totalMatches; updateMatchUI(); }
+    
+    // =============== RENDER PDF dari ArrayBuffer (FULL dengan textLayer) ===============
+    async function renderPdfFromBuffer(arrayBuffer, fileName) {
+        clearAllHighlights();
+        docContainer.innerHTML = '';
+        renderedPagesMap.clear();
+        try {
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            pdfDoc = pdf;
+            currentMode = 'pdf';
+            const numPages = pdf.numPages;
+            setStatus(`Memuat PDF: ${fileName} (${numPages} halaman)...`);
+            
+            for (let i = 1; i <= numPages; i++) {
+                const pageWrapper = document.createElement('div');
+                pageWrapper.className = 'pdf-page';
+                pageWrapper.setAttribute('data-page-num', i);
+                const canvas = document.createElement('canvas');
+                const textDivLayer = document.createElement('div');
+                textDivLayer.className = 'textLayer';
+                textDivLayer.style.position = 'absolute';
+                textDivLayer.style.top = '0';
+                textDivLayer.style.left = '0';
+                textDivLayer.style.right = '0';
+                textDivLayer.style.bottom = '0';
+                textDivLayer.style.pointerEvents = 'none';
+                pageWrapper.style.position = 'relative';
+                pageWrapper.appendChild(canvas);
+                pageWrapper.appendChild(textDivLayer);
+                docContainer.appendChild(pageWrapper);
+                
+                const page = await pdf.getPage(i);
+                const viewport = page.getViewport({ scale: currentScale });
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                canvas.style.width = `${viewport.width}px`;
+                canvas.style.height = `${viewport.height}px`;
+                
+                await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                
+                const textContent = await page.getTextContent();
+                await pdfjsLib.renderTextLayer({
+                    textContent: textContent,
+                    container: textDivLayer,
+                    viewport: viewport,
+                    textDivs: []
+                }).promise;
+                
+                renderedPagesMap.set(i, { textLayerDiv: textDivLayer, pageDiv: pageWrapper });
+            }
+            fileNameSpan.innerText = fileName;
+            setStatus(`✅ PDF dimuat: ${fileName} (${numPages} halaman)`, false, 2000);
+        } catch(err) {
+            console.error(err);
+            setStatus("Gagal render PDF: file mungkin korup", true);
+            docContainer.innerHTML = `<div class="error-banner"><i class="fas fa-exclamation-triangle"></i> Gagal memuat PDF. Pastikan file valid.</div>`;
+            currentMode = null;
+        }
+    }
+    
+    // DOC render
+    async function renderDocFromBuffer(arrayBuffer, fileName) {
+        clearAllHighlights();
+        docContainer.innerHTML = '';
+        try {
+            const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
+            const containerDiv = document.createElement('div');
+            containerDiv.className = 'doc-content';
+            containerDiv.innerHTML = result.value;
+            docContainer.appendChild(containerDiv);
+            docHtmlRoot = containerDiv;
+            currentMode = 'doc';
+            fileNameSpan.innerText = fileName;
+            setStatus(`📄 Dokumen Word dimuat: ${fileName}`, false, 2000);
+        } catch(err) {
+            setStatus("Gagal parsing DOC/DOCX", true);
+            docContainer.innerHTML = `<div class="error-banner"><i class="fas fa-file-word"></i> Gagal membaca file Word.</div>`;
+            currentMode = null;
+        }
+    }
+    
+    // Muat file berdasarkan ID
+    async function loadFileById(id) {
+        const file = storedFiles.find(f => f.id === id);
+        if (!file) return;
+        currentFileId = id;
+        renderFileList();
+        
+        // Konversi base64 ke ArrayBuffer
+        const binaryString = atob(file.dataBase64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        
+        if (file.type === 'pdf') {
+            await renderPdfFromBuffer(bytes.buffer, file.name);
+        } else {
+            await renderDocFromBuffer(bytes.buffer, file.name);
+        }
+        
+        // Reset pencarian setelah load
+        searchInput.value = '';
+        clearAllHighlights();
+        setStatus(`Dibuka: ${file.name}`, false);
+    }
+    
+    // Menyimpan file baru
+    async function addNewFile(fileObj) {
+        const ext = fileObj.name.split('.').pop().toLowerCase();
+        let fileType = '';
+        if (ext === 'pdf' || fileObj.type === 'application/pdf') fileType = 'pdf';
+        else if (ext === 'doc' || ext === 'docx' || fileObj.type.includes('word')) fileType = 'doc';
+        else { setStatus("Format tidak didukung", true); return false; }
+        
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const base64 = e.target.result.split(',')[1];
+                const newId = Date.now() + '_' + Math.random().toString(36).substring(2);
+                const newFile = {
+                    id: newId,
+                    name: fileObj.name,
+                    type: fileType,
+                    dataBase64: base64,
+                    addedAt: Date.now()
+                };
+                storedFiles.unshift(newFile);
+                saveLibraryToLocal();
+                await loadFileById(newId);
+                setStatus(`File "${fileObj.name}" tersimpan di pustaka.`, false);
+                resolve(true);
+            };
+            reader.readAsDataURL(fileObj);
+        });
+    }
+    
+    // PENCARIAN YANG BEKERJA SEMPURNA
+    function performAccurateSearch() {
+        const query = searchInput.value.trim();
+        if (!query) {
+            clearAllHighlights();
+            setStatus("Masukkan kata kunci pencarian", false, 1500);
+            return;
+        }
+        
+        if (!currentMode || (currentMode === 'pdf' && (!pdfDoc || renderedPagesMap.size === 0)) || (currentMode === 'doc' && !docHtmlRoot)) {
+            setStatus("Tidak ada dokumen aktif untuk dicari", true);
+            return;
+        }
+        
+        clearAllHighlights();
+        const lowerQuery = query.toLowerCase();
+        const regex = new RegExp(`(${escapeRegex(lowerQuery)})`, 'gi');
+        let newMatches = [];
+        
+        if (currentMode === 'doc' && docHtmlRoot) {
+            // Traverse text nodes di DOC
+            const walker = document.createTreeWalker(docHtmlRoot, NodeFilter.SHOW_TEXT, {
+                acceptNode: (node) => {
+                    if (node.parentElement && node.parentElement.tagName === 'MARK') return NodeFilter.FILTER_REJECT;
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+            });
+            const textNodes = [];
+            while(walker.nextNode()) textNodes.push(walker.currentNode);
+            
+            textNodes.forEach(tn => {
+                const original = tn.nodeValue;
+                if (!original) return;
+                if (regex.test(original.toLowerCase())) {
+                    const frag = document.createDocumentFragment();
+                    let lastIdx = 0;
+                    let match;
+                    regex.lastIndex = 0;
+                    const lowerOrig = original.toLowerCase();
+                    while ((match = regex.exec(lowerOrig)) !== null) {
+                        if (match.index > lastIdx) {
+                            frag.appendChild(document.createTextNode(original.substring(lastIdx, match.index)));
+                        }
+                        const mark = document.createElement('mark');
+                        mark.className = 'highlight';
+                        mark.textContent = original.substring(match.index, match.index + match[0].length);
+                        frag.appendChild(mark);
+                        newMatches.push({ element: mark, isDoc: true });
+                        lastIdx = match.index + match[0].length;
+                    }
+                    if (lastIdx < original.length) {
+                        frag.appendChild(document.createTextNode(original.substring(lastIdx)));
+                    }
+                    tn.parentNode.replaceChild(frag, tn);
+                }
+            });
+        } 
+        else if (currentMode === 'pdf') {
+            for (let [pageNum, data] of renderedPagesMap.entries()) {
+                const textDivs = data.textLayerDiv.querySelectorAll('div');
+                textDivs.forEach(div => {
+                    const originalText = div.innerText;
+                    if (!originalText) return;
+                    if (regex.test(originalText.toLowerCase())) {
+                        let newHtml = originalText.replace(regex, (match) => `<span class="highlight">${match}</span>`);
+                        div.innerHTML = newHtml;
+                        const spans = div.querySelectorAll('.highlight');
+                        spans.forEach(span => {
+                            newMatches.push({ element: span, isDoc: false, pageNum });
+                        });
+                    }
+                });
+            }
+        }
+        
+        allMatches = newMatches;
+        totalMatches = allMatches.length;
+        if (totalMatches === 0) {
+            matchCounterSpan.innerText = '0/0';
+            setStatus(`Tidak ditemukan "${query}" dalam dokumen`);
+            return;
+        }
+        currentMatchIndex = 0;
+        updateMatchUI();
+        setStatus(`✨ Ditemukan ${totalMatches} hasil untuk "${query}"`);
+    }
+    
+    function escapeRegex(str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    
+    // Event listeners
+    fileInput.addEventListener('change', async (e) => {
+        if (e.target.files.length) {
+            await addNewFile(e.target.files[0]);
+            fileInput.value = '';
+        }
+    });
+    
+    // Drag & drop
+    const viewerArea = document.querySelector('.viewer-wrapper');
+    viewerArea.addEventListener('dragover', (e) => e.preventDefault());
+    viewerArea.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        const files = e.dataTransfer.files;
+        if (files.length) await addNewFile(files[0]);
+    });
+    
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') performAccurateSearch();
+    });
+    prevBtn.addEventListener('click', prevMatch);
+    nextBtn.addEventListener('click', nextMatch);
+    
+    // Inisialisasi
+    loadLibraryFromLocal();
+</script>
+</body>
+</html>
